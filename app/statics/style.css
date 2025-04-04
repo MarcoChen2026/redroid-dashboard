@@ -1,0 +1,13 @@
+.stopped {
+    color: red;
+}
+.container-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.container-table th, .container-table td {
+    border: 1px solid #ddd;
+    padding: 10px;
+   
+}
+ 

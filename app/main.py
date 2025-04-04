@@ -1,71 +1,74 @@
-from flask import Flask, render_template, redirect, url_for, request, flash
-from flask_login import LoginManager, login_user, login_required, logout_user, current_user
-from docker_utils import list_redroid_containers, start_container, stop_container, restart_container, create_redroid_instance
-from models import User, db
-from flask import session
+import os
+import tornado.ioloop
+import tornado.web
+import tornado.httpserver
+import docker
+import json
 
-app = Flask(__name__)
-app.secret_key = 'your-secret-key'
+# Docker 客户端初始化
+client = docker.from_env()
 
-# Setup Flask-Login
-login_manager = LoginManager()
-login_manager.init_app(app)
+class IndexHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("index.html")
 
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
+class ContainersHandler(tornado.web.RequestHandler):
+    def get(self):
+        containers = client.containers.list(all=True)
+        container_info = []
+        for container in containers:
+            container_info.append({
+                'id': container.id,
+                'name': container.name,
+                'status': container.status,
+                'image': container.image.tags[0] if container.image.tags else 'N/A'
+            })
+        self.write(json.dumps(container_info))
 
-@app.route('/')
-@login_required
-def index():
-    containers = list_redroid_containers()
-    return render_template('index.html', containers=containers)
+class StartContainerHandler(tornado.web.RequestHandler):
+    def post(self, container_id):
+        try:
+            container = client.containers.get(container_id)
+            container.start()
+            self.write(json.dumps({'status': 'success', 'message': f'Container {container_id} started successfully.'}))
+        except docker.errors.NotFound:
+            self.write(json.dumps({'status': 'error', 'message': 'Container not found.'}))
+            self.set_status(404)
 
-@app.route('/start/<name>', methods=['POST'])
-@login_required
-def start(name):
-    if current_user.is_admin:
-        start_container(name)
-    return redirect(url_for('index'))
+class StopContainerHandler(tornado.web.RequestHandler):
+    def post(self, container_id):
+        try:
+            container = client.containers.get(container_id)
+            container.stop()
+            self.write(json.dumps({'status': 'success', 'message': f'Container {container_id} stopped successfully.'}))
+        except docker.errors.NotFound:
+            self.write(json.dumps({'status': 'error', 'message': 'Container not found.'}))
+            self.set_status(404)
 
-@app.route('/stop/<name>', methods=['POST'])
-@login_required
-def stop(name):
-    if current_user.is_admin:
-        stop_container(name)
-    return redirect(url_for('index'))
+class RestartContainerHandler(tornado.web.RequestHandler):
+    def post(self, container_id):
+        try:
+            container = client.containers.get(container_id)
+            container.restart()
+            self.write(json.dumps({'status': 'success', 'message': f'Container {container_id} restarted successfully.'}))
+        except docker.errors.NotFound:
+            self.write(json.dumps({'status': 'error', 'message': 'Container not found.'}))
+            self.set_status(404)
 
-@app.route('/restart/<name>', methods=['POST'])
-@login_required
-def restart(name):
-    if current_user.is_admin:
-        restart_container(name)
-    return redirect(url_for('index'))
+def make_app():
+    return tornado.web.Application([
+        (r"/", IndexHandler),
+        (r"/containers", ContainersHandler),
+        (r"/container/start/(.*)", StartContainerHandler),
+        (r"/container/stop/(.*)", StopContainerHandler),
+        (r"/container/restart/(.*)", RestartContainerHandler),
+      ], template_path=os.path.join(os.path.dirname(__file__), "templates"))
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        user = User.query.filter_by(username=username).first()
-        if user and user.verify_password(password):
-            login_user(user)
-            return redirect(url_for('index'))
-        flash('Invalid username or password', 'error')
-    return render_template('login.html')
+if __name__ == "__main__":
+    app = make_app()
+    http_server = tornado.httpserver.HTTPServer(app)
+    http_server.listen(5000)
+    tornado.ioloop.IOLoop.current().start()
 
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('login'))
 
-@app.route('/create_instance', methods=['POST'])
-@login_required
-def create_instance():
-    if current_user.is_admin:
-        create_redroid_instance()
-    return redirect(url_for('index'))
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)

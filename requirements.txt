@@ -1,6 +1,4 @@
-flask
-flask-login
-flask-sqlalchemy
-werkzeug
+tornado
 docker
 requests
+
