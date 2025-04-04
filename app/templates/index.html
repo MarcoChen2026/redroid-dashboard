@@ -6,7 +6,8 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <h1>Docker Containers</h1>
+    <h1>My Cloud Mobiles</h1>
+   
     <div id="container-list"></div>
 
     <script>
@@ -16,17 +17,20 @@
             .then(data => {
                 const containerList = document.getElementById('container-list');
                 data.forEach(container => {
-                    const containerDiv = document.createElement('div');
-                    containerDiv.innerHTML = `
-                        <p><strong>Container Name:</strong> ${container.name}</p>
-                        <p><strong>Status:</strong> ${container.status}</p>
-                        <p><strong>Image:</strong> ${container.image}</p>
-                        <button onclick="startContainer('${container.id}')">Start</button>
-                        <button onclick="stopContainer('${container.id}')">Stop</button>
-                        <button onclick="restartContainer('${container.id}')">Restart</button>
-                        <hr>
-                    `;
-                    containerList.appendChild(containerDiv);
+                    if (container.name.startsWith("cloud")){
+                        const containerDiv = document.createElement('div');
+                        containerDiv.innerHTML = `
+                            <p><strong>Container Name:</strong> ${container.name}</p>
+                            <p><strong>Status:</strong> ${container.status}</p>
+                            <p><strong>Image:</strong> ${container.image}</p>
+                            <button onclick="startContainer('${container.id}')">Start</button>
+                            <button onclick="stopContainer('${container.id}')">Stop</button>
+                            <button onclick="restartContainer('${container.id}')">Restart</button>
+                            <hr>
+                        `;
+                        containerList.appendChild(containerDiv);
+                    }
+                       
                 });
             });
 
